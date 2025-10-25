@@ -1,0 +1,62 @@
+[Unit]
+Description=PlowPilot AI-Vision: Real-time video analytics on NVIDIA Jetson
+Documentation=https://github.com/sompublic/AI-Vision
+After=network.target multi-user.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=plowpilot
+Group=plowpilot
+WorkingDirectory=/app
+ExecStartPre=/bin/bash -c 'mkdir -p /app/data /app/models /app/recordings /app/logs /app/benchmarks'
+ExecStartPre=/app/scripts/run_jetson_clocks.sh max
+ExecStart=/app/build/plowpilot --config /app/configs/pipeline.yaml
+ExecStop=/bin/kill -TERM $MAINPID
+ExecStopPost=/app/scripts/run_jetson_clocks.sh balanced
+Restart=always
+RestartSec=10
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+# Environment variables
+Environment=PLOWPILOT_CONFIG_DIR=/app/configs
+Environment=PLOWPILOT_DATA_DIR=/app/data
+Environment=PLOWPILOT_MODELS_DIR=/app/models
+Environment=PLOWPILOT_RECORDINGS_DIR=/app/recordings
+Environment=PLOWPILOT_LOGS_DIR=/app/logs
+Environment=PLOWPILOT_LOG_LEVEL=INFO
+Environment=PLOWPILOT_DEBUG=0
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=32768
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/app/data /app/models /app/recordings /app/logs /app/benchmarks /tmp
+
+# Device access
+DeviceAllow=/dev/video0 rw
+DeviceAllow=/dev/nvhost-ctrl rw
+DeviceAllow=/dev/nvhost-ctrl-gpu rw
+DeviceAllow=/dev/nvhost-prof-gpu rw
+DeviceAllow=/dev/nvmap rw
+DeviceAllow=/dev/nvhost-gpu rw
+
+# Network access
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=127.0.0.1
+IPAddressAllow=172.20.0.0/16
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=plowpilot
+
+[Install]
+WantedBy=multi-user.target

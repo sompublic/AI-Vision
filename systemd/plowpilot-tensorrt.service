@@ -1,0 +1,17 @@
+[Unit]
+Description=PlowPilot AI-Vision TensorRT Engine Builder
+Documentation=https://github.com/sompublic/AI-Vision
+After=multi-user.target
+
+[Service]
+Type=oneshot
+User=plowpilot
+Group=plowpilot
+WorkingDirectory=/app
+ExecStart=/app/scripts/build_engines.sh --int8 --benchmark
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=plowpilot-tensorrt
+
+[Install]
+WantedBy=multi-user.target

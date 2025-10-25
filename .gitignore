@@ -1,0 +1,89 @@
+# Build artifacts
+build/
+dist/
+*.o
+*.so
+*.a
+*.exe
+*.dll
+*.dylib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+_deps/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+tegrastats.log
+
+# Data and models
+data/raw/
+data/processed/
+models/*.onnx
+models/*.trt
+models/*.engine
+models/calibration/
+*.weights
+*.pt
+*.pth
+
+# Recordings
+recordings/
+*.mp4
+*.avi
+*.mkv
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# JetPack/TensorRT
+/usr/local/cuda/
+/usr/local/tensorrt/
+
+# System files
+*.pid
+*.sock

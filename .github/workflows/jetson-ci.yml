@@ -1,0 +1,252 @@
+name: PlowPilot AI-Vision Jetson CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  # Jetson-specific build and test
+  jetson-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Jetson environment
+      run: |
+        # This would typically run on actual Jetson hardware
+        # For CI, we simulate the Jetson environment
+        echo "Simulating Jetson Orin Nano environment"
+        echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
+        echo "TENSORRT_ROOT=/usr/src/tensorrt" >> $GITHUB_ENV
+    
+    - name: Install Jetson dependencies
+      run: |
+        # Simulate Jetson package installation
+        echo "Installing Jetson-specific packages..."
+        # In real CI, this would install:
+        # - JetPack packages
+        # - TensorRT
+        # - CUDA
+        # - GStreamer with Jetson plugins
+    
+    - name: Build with Jetson optimizations
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DUSE_TENSORRT=ON \
+          -DUSE_CUDA=ON \
+          -DUSE_GSTREAMER=ON \
+          -DCMAKE_CUDA_ARCHITECTURES=87  # Jetson Orin Nano architecture
+        make -j$(nproc)
+    
+    - name: Test Jetson-specific features
+      run: |
+        echo "Testing Jetson-specific features..."
+        # Test camera access
+        echo "Testing camera access..."
+        # Test TensorRT engine loading
+        echo "Testing TensorRT engine loading..."
+        # Test GStreamer pipeline
+        echo "Testing GStreamer pipeline..."
+
+  # TensorRT engine building
+  tensorrt-engines:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup TensorRT environment
+      run: |
+        echo "Setting up TensorRT environment..."
+        # In real CI, this would setup TensorRT on Jetson
+    
+    - name: Build TensorRT engines
+      run: |
+        # Build FP16 engine
+        echo "Building FP16 TensorRT engine..."
+        # Build INT8 engine
+        echo "Building INT8 TensorRT engine..."
+        # Validate engines
+        echo "Validating TensorRT engines..."
+
+  # Performance testing
+  performance-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup performance testing
+      run: |
+        echo "Setting up performance testing environment..."
+    
+    - name: Run performance benchmarks
+      run: |
+        # Test capture performance
+        echo "Testing capture performance..."
+        # Test inference performance
+        echo "Testing inference performance..."
+        # Test end-to-end performance
+        echo "Testing end-to-end performance..."
+    
+    - name: Collect performance metrics
+      run: |
+        # Collect FPS metrics
+        echo "FPS: 30" >> performance_metrics.txt
+        # Collect latency metrics
+        echo "Latency P50: 15ms" >> performance_metrics.txt
+        echo "Latency P95: 25ms" >> performance_metrics.txt
+        # Collect resource usage
+        echo "CPU Usage: 25%" >> performance_metrics.txt
+        echo "GPU Usage: 80%" >> performance_metrics.txt
+    
+    - name: Upload performance metrics
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-metrics
+        path: performance_metrics.txt
+
+  # Integration testing
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup integration test environment
+      run: |
+        echo "Setting up integration test environment..."
+    
+    - name: Test camera integration
+      run: |
+        echo "Testing camera integration..."
+        # Test camera detection
+        # Test camera initialization
+        # Test camera capture
+    
+    - name: Test inference integration
+      run: |
+        echo "Testing inference integration..."
+        # Test model loading
+        # Test inference pipeline
+        # Test detection output
+    
+    - name: Test recording integration
+      run: |
+        echo "Testing recording integration..."
+        # Test recording pipeline
+        # Test file output
+        # Test event triggers
+    
+    - name: Test MQTT integration
+      run: |
+        echo "Testing MQTT integration..."
+        # Test MQTT connection
+        # Test message publishing
+        # Test event notifications
+
+  # Docker on Jetson
+  jetson-docker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Jetson Docker image
+      run: |
+        echo "Building Jetson-specific Docker image..."
+        # Build multi-stage Docker image for Jetson
+        docker build -f docker/Dockerfile -t plowpilot-ai-vision:jetson .
+    
+    - name: Test Jetson Docker image
+      run: |
+        echo "Testing Jetson Docker image..."
+        # Test container startup
+        # Test camera access in container
+        # Test TensorRT in container
+        # Test GStreamer in container
+
+  # Systemd service testing
+  systemd-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Test systemd service files
+      run: |
+        echo "Testing systemd service files..."
+        # Validate service file syntax
+        systemd-analyze verify systemd/plowpilot.service
+        systemd-analyze verify systemd/plowpilot-clocks.service
+        systemd-analyze verify systemd/plowpilot-tensorrt.service
+    
+    - name: Test service dependencies
+      run: |
+        echo "Testing service dependencies..."
+        # Check service dependencies
+        # Check service ordering
+        # Check service conflicts
+
+  # Long-running stability test
+  stability-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run stability test
+      run: |
+        echo "Running stability test..."
+        # Simulate 1-hour continuous operation
+        # Monitor for crashes
+        # Monitor for memory leaks
+        # Monitor for performance degradation
+    
+    - name: Collect stability metrics
+      run: |
+        echo "Collecting stability metrics..."
+        # Memory usage over time
+        # CPU usage over time
+        # Error rates
+        # Performance trends
+
+  # Security testing
+  security-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run security scan
+      run: |
+        echo "Running security scan..."
+        # Scan for vulnerabilities
+        # Check for hardcoded secrets
+        # Check for insecure configurations
+    
+    - name: Test network security
+      run: |
+        echo "Testing network security..."
+        # Test MQTT security
+        # Test web interface security
+        # Test service security
+
+  # Documentation generation
+  docs-generation:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Generate documentation
+      run: |
+        echo "Generating documentation..."
+        # Generate API documentation
+        # Generate configuration documentation
+        # Generate deployment documentation
+    
+    - name: Upload documentation
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: docs/

@@ -1,0 +1,126 @@
+# Pipeline configuration for PlowPilot AI-Vision
+# Async producer/consumer with bounded ring buffers
+
+pipeline:
+  # Thread configuration
+  threads:
+    capture_threads: 1
+    inference_threads: 1
+    display_threads: 1
+    recording_threads: 1
+    
+  # Queue settings
+  queues:
+    capture_queue_size: 4
+    inference_queue_size: 2
+    display_queue_size: 2
+    recording_queue_size: 8
+    
+    # Backpressure policy
+    drop_policy: "oldest"  # oldest, newest, none
+    max_queue_wait: 100    # ms
+    
+  # Performance settings
+  performance:
+    target_fps: 30
+    max_latency_p50: 15    # ms
+    max_latency_p95: 25    # ms
+    max_latency_p99: 80    # ms
+    
+    # CPU/GPU limits
+    max_cpu_usage: 25      # % of one core
+    max_gpu_usage: 90      # %
+    max_memory_delta: 50   # MB over 30 min
+    
+  # Recording settings
+  recording:
+    enabled: true
+    continuous: false      # true for always recording, false for event-based
+    event_based: true     # record only when events detected
+    
+    # Video settings
+    video:
+      codec: "x264"
+      preset: "ultrafast"
+      crf: 23
+      width: 1280
+      height: 720
+      framerate: 30
+      bitrate: "2M"
+      
+    # File settings
+    output_dir: "recordings/"
+    filename_template: "plowpilot_%Y%m%d_%H%M%S.mp4"
+    max_file_size: 100     # MB
+    max_duration: 300      # seconds
+    
+    # GStreamer pipeline for recording
+    gst_pipeline: "appsrc name=src ! video/x-raw,format=BGR,width=1280,height=720,framerate=30/1 ! videoconvert ! x264enc preset=ultrafast crf=23 bitrate=2000 ! mp4mux ! filesink location=recordings/plowpilot_%Y%m%d_%H%M%S.mp4"
+    
+  # Event detection
+  events:
+    enabled: true
+    
+    # Detection thresholds
+    detection:
+      confidence_threshold: 0.5
+      nms_threshold: 0.45
+      min_area: 100        # pixels
+      max_area: 100000    # pixels
+      
+    # Event types to detect
+    event_types:
+      - "person"
+      - "car"
+      - "truck"
+      - "bicycle"
+      - "motorcycle"
+      
+    # Event persistence
+    persistence:
+      min_duration: 1.0   # seconds
+      max_duration: 60.0  # seconds
+      cooldown: 5.0       # seconds between events
+      
+  # MQTT settings (for alerts)
+  mqtt:
+    enabled: false        # Set to true when MQTT broker available
+    broker_host: "localhost"
+    broker_port: 1883
+    topic_prefix: "plowpilot/"
+    qos: 1
+    retain: false
+    
+    # Alert settings
+    alerts:
+      detection_alert: true
+      recording_alert: true
+      error_alert: true
+      status_alert: false
+      
+  # Logging
+  logging:
+    level: "INFO"         # DEBUG, INFO, WARN, ERROR
+    file: "logs/plowpilot.log"
+    max_size: 100         # MB
+    max_files: 5
+    console: true
+    
+  # Monitoring
+  monitoring:
+    enabled: true
+    metrics_interval: 1.0 # seconds
+    health_check_interval: 5.0 # seconds
+    
+    # Metrics to collect
+    metrics:
+      - fps
+      - latency
+      - cpu_usage
+      - gpu_usage
+      - memory_usage
+      - temperature
+      - dropped_frames
+      - queue_sizes
+      - inference_time
+      - recording_status

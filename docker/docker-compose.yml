@@ -1,0 +1,145 @@
+# PlowPilot AI-Vision Docker Compose Configuration
+# For development and production deployment
+
+version: '3.8'
+
+services:
+  # Main PlowPilot AI-Vision service
+  plowpilot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime
+    container_name: plowpilot-ai-vision
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/nvhost-ctrl:/dev/nvhost-ctrl
+      - /dev/nvhost-ctrl-gpu:/dev/nvhost-ctrl-gpu
+      - /dev/nvhost-prof-gpu:/dev/nvhost-prof-gpu
+      - /dev/nvmap:/dev/nvmap
+      - /dev/nvhost-gpu:/dev/nvhost-gpu
+      - /dev/nvhost-ctrl:/dev/nvhost-ctrl
+      - /dev/nvhost-ctrl-gpu:/dev/nvhost-ctrl-gpu
+      - /dev/nvhost-prof-gpu:/dev/nvhost-prof-gpu
+      - /dev/nvmap:/dev/nvmap
+      - /dev/nvhost-gpu:/dev/nvhost-gpu
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+      - ../recordings:/app/recordings
+      - ../logs:/app/logs
+      - ../benchmarks:/app/benchmarks
+      - ../configs:/app/configs
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - DISPLAY=${DISPLAY}
+      - PLOWPILOT_CONFIG_DIR=/app/configs
+      - PLOWPILOT_DATA_DIR=/app/data
+      - PLOWPILOT_MODELS_DIR=/app/models
+      - PLOWPILOT_RECORDINGS_DIR=/app/recordings
+      - PLOWPILOT_LOGS_DIR=/app/logs
+    networks:
+      - plowpilot-network
+    depends_on:
+      - mqtt-broker
+    command: ["/app/build/plowpilot", "--config", "/app/configs/pipeline.yaml"]
+
+  # MQTT Broker for event notifications
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    container_name: plowpilot-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-logs:/mosquitto/log
+    networks:
+      - plowpilot-network
+
+  # Web interface for monitoring and control
+  web-interface:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: development
+    container_name: plowpilot-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../data:/app/data
+      - ../recordings:/app/recordings
+      - ../logs:/app/logs
+      - ../configs:/app/configs
+    environment:
+      - PLOWPILOT_WEB_PORT=8080
+      - PLOWPILOT_DATA_DIR=/app/data
+      - PLOWPILOT_RECORDINGS_DIR=/app/recordings
+      - PLOWPILOT_LOGS_DIR=/app/logs
+    networks:
+      - plowpilot-network
+    depends_on:
+      - plowpilot
+    command: ["python3", "/app/scripts/web_interface.py"]
+
+  # TensorRT engine builder
+  tensorrt-builder:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: tensorrt-builder
+    container_name: plowpilot-tensorrt-builder
+    restart: "no"
+    volumes:
+      - ../models:/app/models
+      - ../data:/app/data
+      - ../configs:/app/configs
+    environment:
+      - TENSORRT_ROOT=/usr/src/tensorrt
+      - CUDA_HOME=/usr/local/cuda
+    networks:
+      - plowpilot-network
+    command: ["/app/scripts/build_engines.sh", "--int8", "--benchmark"]
+
+  # Development environment
+  development:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: development
+    container_name: plowpilot-dev
+    restart: "no"
+    privileged: true
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/nvhost-ctrl:/dev/nvhost-ctrl
+      - /dev/nvhost-ctrl-gpu:/dev/nvhost-ctrl-gpu
+      - /dev/nvhost-prof-gpu:/dev/nvhost-prof-gpu
+      - /dev/nvmap:/dev/nvmap
+      - /dev/nvhost-gpu:/dev/nvhost-gpu
+    volumes:
+      - ..:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - DISPLAY=${DISPLAY}
+      - PLOWPILOT_DEBUG=1
+      - PLOWPILOT_LOG_LEVEL=DEBUG
+    networks:
+      - plowpilot-network
+    command: ["/bin/bash"]
+
+networks:
+  plowpilot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mosquitto-data:
+  mosquitto-logs:

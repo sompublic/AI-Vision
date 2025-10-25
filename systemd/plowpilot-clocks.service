@@ -1,0 +1,12 @@
+[Unit]
+Description=PlowPilot AI-Vision Clock Configuration
+Documentation=https://github.com/sompublic/AI-Vision
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/app/scripts/run_jetson_clocks.sh max
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

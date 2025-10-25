@@ -1,0 +1,45 @@
+# Camera configuration for PlowPilot AI-Vision
+# Target: Logitech USB webcam (C920/C922-class, 1080p30-capable)
+
+camera:
+  device: "/dev/video0"
+  width: 1280
+  height: 720
+  framerate: 30
+  format: "MJPG"  # Primary format, fallback to YUYV
+  
+  # GStreamer pipeline string for capture
+  gst_pipeline: "v4l2src device=/dev/video0 ! video/x-raw,format=MJPG,width=1280,height=720,framerate=30/1 ! jpegdec ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink name=sink emit-signals=true sync=false max-buffers=2 drop=true"
+  
+  # Fallback pipeline for YUYV format
+  gst_pipeline_fallback: "v4l2src device=/dev/video0 ! video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1 ! videoconvert ! video/x-raw,format=BGR ! appsink name=sink emit-signals=true sync=false max-buffers=2 drop=true"
+  
+  # Buffer settings
+  buffer_size: 2
+  drop_frames: true
+  sync: false
+  
+  # Performance tuning
+  dmabuf: true
+  zero_copy: true
+
+# Display settings
+display:
+  enabled: true
+  width: 1280
+  height: 720
+  fullscreen: false
+  show_fps: true
+  show_telemetry: true
+
+# Telemetry settings
+telemetry:
+  enabled: true
+  log_interval: 1.0  # seconds
+  metrics:
+    - fps
+    - latency
+    - cpu_usage
+    - gpu_usage
+    - memory_usage
+    - temperature
