@@ -13,7 +13,6 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsink.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/gstreamer.hpp>
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -22,7 +21,11 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
+#ifdef USE_ALTERNATIVE_YAML
+#include "stub_yaml.h"
+#else
 #include <yaml-cpp/yaml.h>
+#endif
 
 class GStreamerCapture {
 private:
@@ -74,7 +77,7 @@ public:
             width_ = camera["width"].as<int>(1280);
             height_ = camera["height"].as<int>(720);
             framerate_ = camera["framerate"].as<int>(30);
-            format_ = camera["format"].as<std::string>("MJPG");
+            format_ = "YUYV";  // Force YUYV format for testing
             dmabuf_enabled_ = camera["dmabuf"].as<bool>(true);
             
             return createPipeline();
@@ -108,6 +111,7 @@ public:
                           " ! appsink name=sink emit-signals=true sync=false max-buffers=2 drop=true";
         }
         
+        std::cout << "Format: " << format_ << std::endl;
         std::cout << "GStreamer pipeline: " << pipeline_str << std::endl;
         
         // Create pipeline
@@ -234,6 +238,7 @@ private:
 };
 
 // Example usage and testing
+#ifndef INCLUDED_IN_PIPELINE
 int main(int argc, char* argv[]) {
     std::string config_file = "configs/camera.yaml";
     if (argc > 1) {
@@ -293,3 +298,4 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
+#endif

@@ -29,10 +29,13 @@ model:
   # TensorRT settings
   tensorrt:
     precision: "fp16"  # fp16, int8, fp32
-    workspace_size: 1024  # MB
+    workspace_size: 2048  # MB - Increased for better compatibility
     max_batch_size: 1
     optimization_level: 5
     builder_optimization_level: 5
+    # ✅ Add timeout settings to prevent infinite loops
+    build_timeout: 1800  # 30 minutes
+    int8_build_timeout: 2700  # 45 minutes
     
     # INT8 calibration (if using int8 precision)
     int8_calibration:

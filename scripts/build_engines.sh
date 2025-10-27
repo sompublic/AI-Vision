@@ -71,7 +71,7 @@ EOF
     echo -e "${GREEN}YOLOv8n ONNX model downloaded: ${ONNX_MODEL}${NC}"
 }
 
-# Function to build FP16 engine
+# Function to build FP16 engine with timeout protection
 build_fp16_engine() {
     echo -e "${YELLOW}Building FP16 TensorRT engine...${NC}"
     
@@ -81,18 +81,28 @@ build_fp16_engine() {
         exit 1
     fi
     
-    trtexec --onnx="${ONNX_MODEL}" \
+    # ✅ Add timeout protection (30 minutes max)
+    timeout 1800 trtexec --onnx="${ONNX_MODEL}" \
             --saveEngine="${TRT_ENGINE_FP16}" \
             --fp16 \
-            --workspace=1024 \
+            --workspace=2048 \
             --verbose \
             --noDataTransfers \
-            --useCudaGraph
+            --useCudaGraph \
+            --minShapes=input:1x3x640x640 \
+            --optShapes=input:1x3x640x640 \
+            --maxShapes=input:1x3x640x640
     
-    if [ $? -eq 0 ]; then
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
         echo -e "${GREEN}FP16 engine built successfully: ${TRT_ENGINE_FP16}${NC}"
+    elif [ $exit_code -eq 124 ]; then
+        echo -e "${RED}❌ FP16 engine build TIMED OUT after 30 minutes${NC}"
+        echo -e "${YELLOW}💡 Try reducing workspace size or using a simpler model${NC}"
+        exit 1
     else
-        echo -e "${RED}Failed to build FP16 engine${NC}"
+        echo -e "${RED}❌ Failed to build FP16 engine (exit code: $exit_code)${NC}"
         exit 1
     fi
 }
@@ -134,20 +144,29 @@ EOF
         rm create_calibration_data.py
     fi
     
-    # Build INT8 engine with calibration
-    trtexec --onnx="${ONNX_MODEL}" \
+    # ✅ Build INT8 engine with timeout protection (45 minutes max)
+    timeout 2700 trtexec --onnx="${ONNX_MODEL}" \
             --saveEngine="${TRT_ENGINE_INT8}" \
             --int8 \
             --calib="${CALIBRATION_DATA}" \
-            --workspace=1024 \
+            --workspace=2048 \
             --verbose \
             --noDataTransfers \
-            --useCudaGraph
+            --useCudaGraph \
+            --minShapes=input:1x3x640x640 \
+            --optShapes=input:1x3x640x640 \
+            --maxShapes=input:1x3x640x640
     
-    if [ $? -eq 0 ]; then
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
         echo -e "${GREEN}INT8 engine built successfully: ${TRT_ENGINE_INT8}${NC}"
+    elif [ $exit_code -eq 124 ]; then
+        echo -e "${RED}❌ INT8 engine build TIMED OUT after 45 minutes${NC}"
+        echo -e "${YELLOW}💡 INT8 calibration can take longer. Try FP16 first.${NC}"
+        exit 1
     else
-        echo -e "${RED}Failed to build INT8 engine${NC}"
+        echo -e "${RED}❌ Failed to build INT8 engine (exit code: $exit_code)${NC}"
         exit 1
     fi
 }

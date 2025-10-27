@@ -30,17 +30,23 @@ def export_yolov8n_to_onnx(model_name="yolov8n", output_dir="models"):
     # Load YOLOv8n model
     model = YOLO(f'{model_name}.pt')
     
-    # Export to ONNX
+    # Export to ONNX with proper settings for TensorRT
     onnx_path = os.path.join(output_dir, f'{model_name}.onnx')
-    model.export(
-        format='onnx',
-        imgsz=640,
-        optimize=True,
-        simplify=True,
-        opset=11,
-        dynamic=False,
-        batch=1
-    )
+    
+    try:
+        model.export(
+            format='onnx',
+            imgsz=640,
+            optimize=True,
+            simplify=True,
+            opset=12,        # ✅ Updated to opset 12 for YOLOv8n compatibility
+            dynamic=True,    # ✅ Enable dynamic shapes for flexibility
+            batch=1,
+            verbose=True     # ✅ Add verbose output for debugging
+        )
+    except Exception as e:
+        print(f"❌ ONNX export failed: {e}")
+        return None
     
     # Move exported file to target location
     if os.path.exists(f'{model_name}.onnx'):

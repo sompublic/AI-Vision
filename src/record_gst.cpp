@@ -21,7 +21,12 @@
 #include <condition_variable>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#ifdef USE_ALTERNATIVE_YAML
+#include "stub_yaml.h"
+#else
 #include <yaml-cpp/yaml.h>
+#endif
 
 struct RecordingConfig {
     bool enabled;
@@ -37,6 +42,14 @@ struct RecordingConfig {
     int width, height;
     int framerate;
     std::string bitrate;
+    
+    // Audio settings
+    bool audio_enabled;
+    std::string audio_device;
+    int audio_sample_rate;
+    int audio_channels;
+    std::string audio_codec;
+    int audio_bitrate;
 };
 
 class GStreamerRecorder {
@@ -61,6 +74,7 @@ private:
     std::atomic<uint64_t> frames_recorded_;
     std::atomic<uint64_t> files_created_;
     std::chrono::steady_clock::time_point start_time_;
+    GstClockTime pipeline_start_time_;
     
     // Event detection
     std::queue<cv::Mat> frame_queue_;
@@ -71,7 +85,7 @@ private:
 public:
     GStreamerRecorder() : pipeline_(nullptr), appsrc_(nullptr), filesink_(nullptr),
                          recording_(false), initialized_(false), event_detected_(false),
-                         frames_recorded_(0), files_created_(0) {
+                         frames_recorded_(0), files_created_(0), pipeline_start_time_(0) {
         start_time_ = std::chrono::steady_clock::now();
     }
     
@@ -92,7 +106,7 @@ public:
             config_.continuous = recording["continuous"].as<bool>(false);
             config_.event_based = recording["event_based"].as<bool>(true);
             config_.output_dir = recording["output_dir"].as<std::string>("recordings/");
-            config_.filename_template = recording["filename_template"].as<std::string>("plowpilot_%Y%m%d_%H%M%S.mp4");
+            config_.filename_template = recording["filename_template"].as<std::string>("plowpilot_%Y%m%d_%H%M%S.avi");
             config_.max_file_size = recording["max_file_size"].as<int>(100);
             config_.max_duration = recording["max_duration"].as<int>(300);
             
@@ -104,6 +118,15 @@ public:
             config_.height = video["height"].as<int>(720);
             config_.framerate = video["framerate"].as<int>(30);
             config_.bitrate = video["bitrate"].as<std::string>("2M");
+            
+            // Load audio configuration
+            auto audio = recording["audio"];
+            config_.audio_enabled = audio["enabled"].as<bool>(false);
+            config_.audio_device = audio["device"].as<std::string>("hw:0,0");
+            config_.audio_sample_rate = audio["sample_rate"].as<int>(48000);
+            config_.audio_channels = audio["channels"].as<int>(1);
+            config_.audio_codec = audio["codec"].as<std::string>("mp3");
+            config_.audio_bitrate = audio["bitrate"].as<int>(128);
             
             // Create output directory
             std::filesystem::create_directories(config_.output_dir);
@@ -123,15 +146,31 @@ public:
         current_filename_ = generateFilename();
         std::string full_path = config_.output_dir + current_filename_;
         
-        // Build GStreamer pipeline
-        std::string pipeline_str = "appsrc name=src ! video/x-raw,format=BGR,width=" + 
-                                  std::to_string(config_.width) + ",height=" + 
-                                  std::to_string(config_.height) + ",framerate=" + 
-                                  std::to_string(config_.framerate) + "/1" +
-                                  " ! videoconvert ! x264enc preset=" + config_.preset + 
-                                  " crf=" + std::to_string(config_.crf) + 
-                                  " bitrate=" + config_.bitrate + 
-                                  " ! mp4mux ! filesink location=" + full_path;
+        // Build GStreamer pipeline with video and optional audio
+        std::string pipeline_str;
+        
+        if (config_.audio_enabled) {
+            // Video + Audio pipeline with proper sync
+            pipeline_str = "appsrc name=src caps=video/x-raw,format=BGR,width=" + 
+                          std::to_string(config_.width) + ",height=" + 
+                          std::to_string(config_.height) + ",framerate=" + 
+                          std::to_string(config_.framerate) + "/1" +
+                          " ! videoconvert ! queue ! x264enc bitrate=2000 ! mux. " +
+                          "alsasrc device=" + config_.audio_device + 
+                          " ! audioconvert ! audioresample ! audio/x-raw,rate=" + 
+                          std::to_string(config_.audio_sample_rate) + ",channels=" + 
+                          std::to_string(config_.audio_channels) + 
+                          " ! queue ! lamemp3enc bitrate=" + std::to_string(config_.audio_bitrate) + 
+                          " ! mux. avimux name=mux ! filesink location=" + full_path;
+        } else {
+            // Video only pipeline
+            pipeline_str = "appsrc name=src caps=video/x-raw,format=BGR,width=" + 
+                          std::to_string(config_.width) + ",height=" + 
+                          std::to_string(config_.height) + ",framerate=" + 
+                          std::to_string(config_.framerate) + "/1" +
+                          " ! videoconvert ! x264enc bitrate=2000" + 
+                          " ! avimux ! filesink location=" + full_path;
+        }
         
         std::cout << "Recording pipeline: " << pipeline_str << std::endl;
         
@@ -179,6 +218,9 @@ public:
         }
         
         // Start recording thread
+        recording_ = true;
+        recording_start_time_ = std::chrono::steady_clock::now();
+        pipeline_start_time_ = gst_clock_get_time(gst_element_get_clock(pipeline_));
         recording_thread_ = std::thread(&GStreamerRecorder::recordingLoop, this);
         
         std::cout << "Recording started: " << current_filename_ << std::endl;
@@ -188,14 +230,22 @@ public:
     void stop() {
         recording_ = false;
         
+        // Send End of Stream signal to appsrc
+        if (appsrc_) {
+            gst_app_src_end_of_stream(GST_APP_SRC(appsrc_));
+        }
+        
+        // Wait for recording thread to finish processing
+        if (recording_thread_.joinable()) {
+            recording_thread_.join();
+        }
+        
+        // Wait longer for EOS to be processed
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        
         // Stop pipeline
         if (pipeline_) {
             gst_element_set_state(pipeline_, GST_STATE_NULL);
-        }
-        
-        // Wait for recording thread
-        if (recording_thread_.joinable()) {
-            recording_thread_.join();
         }
         
         // Clear frame queue
@@ -285,17 +335,20 @@ private:
             memcpy(map.data, frame.data, frame.total() * frame.elemSize());
             gst_buffer_unmap(buffer, &map);
             
-            // Set timestamp
-            GST_BUFFER_PTS(buffer) = gst_clock_get_time(gst_element_get_clock(pipeline_));
-            GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
+            // Set proper timestamp with duration
+            GstClockTime timestamp = pipeline_start_time_ + (frames_recorded_.load() * GST_SECOND / config_.framerate);
+            GST_BUFFER_PTS(buffer) = timestamp;
+            GST_BUFFER_DTS(buffer) = timestamp;
+            GST_BUFFER_DURATION(buffer) = GST_SECOND / config_.framerate;
             
             // Push buffer to appsrc
             GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(appsrc_), buffer);
             if (ret != GST_FLOW_OK) {
-                std::cerr << "Failed to push frame to pipeline" << std::endl;
+                std::cerr << "Failed to push frame to pipeline: " << ret << std::endl;
                 gst_buffer_unref(buffer);
             }
         } else {
+            std::cerr << "Failed to map buffer" << std::endl;
             gst_buffer_unref(buffer);
         }
     }
@@ -306,13 +359,19 @@ private:
         // Check duration
         auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - recording_start_time_).count();
         if (duration >= config_.max_duration) {
+            std::cout << "Duration limit reached: " << duration << " seconds" << std::endl;
             return true;
         }
         
-        // Check file size (approximate)
-        if (frames_recorded_.load() > 0 && frames_recorded_.load() % 1000 == 0) {
-            // This is a simplified check - in practice, you'd check actual file size
-            return false;
+        // Check actual file size
+        std::string full_path = config_.output_dir + current_filename_;
+        std::ifstream file(full_path, std::ios::binary | std::ios::ate);
+        if (file.is_open()) {
+            auto file_size_mb = file.tellg() / (1024 * 1024); // Convert to MB
+            if (file_size_mb >= config_.max_file_size) {
+                std::cout << "File size limit reached: " << file_size_mb << " MB" << std::endl;
+                return true;
+            }
         }
         
         return false;

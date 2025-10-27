@@ -8,7 +8,13 @@ Type=oneshot
 User=plowpilot
 Group=plowpilot
 WorkingDirectory=/app
-ExecStart=/app/scripts/build_engines.sh --int8 --benchmark
+# ✅ Safe configuration: FP16 only, no benchmark, with timeout
+ExecStart=/app/scripts/build_engines.sh
+# ✅ Add timeout protection (2 hours max)
+TimeoutSec=7200
+# ✅ Restart policy for failed builds
+Restart=on-failure
+RestartSec=300
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=plowpilot-tensorrt

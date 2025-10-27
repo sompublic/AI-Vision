@@ -9,6 +9,7 @@
  * Stable GPU util 60–90%, no queue growth (bounded latency)
  */
 
+#define INCLUDED_IN_PIPELINE
 #include "capture_gst.cpp"
 #include "infer_trt.cpp"
 #include <opencv2/opencv.hpp>
@@ -20,7 +21,11 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
+#ifdef USE_ALTERNATIVE_YAML
+#include "stub_yaml.h"
+#else
 #include <yaml-cpp/yaml.h>
+#endif
 
 struct FrameData {
     cv::Mat frame;
@@ -293,9 +298,12 @@ private:
                 continue;
             }
             
-            // Run inference
+            // Add frame to inference
+            inference_->addFrame(frame_data.frame);
+            
+            // Get detections from inference
             std::vector<Detection> detections;
-            if (inference_->infer(frame_data.frame, detections)) {
+            if (inference_->getDetections(detections, 100)) {
                 DetectionData detection_data(detections, frame_data.frame_id);
                 
                 // Add to display queue

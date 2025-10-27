@@ -9,7 +9,11 @@
  * 24h soak: zero crashes, no unrecovered camera disconnect
  */
 
+#ifdef USE_MQTT
 #include <mqtt/async_client.h>
+#else
+#include "stub_mqtt.h"
+#endif
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <memory>
@@ -21,7 +25,12 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <unistd.h>
+#ifdef USE_ALTERNATIVE_YAML
+#include "stub_yaml.h"
+#else
 #include <yaml-cpp/yaml.h>
+#endif
 
 struct Event {
     std::string type;
@@ -346,7 +355,7 @@ int main(int argc, char* argv[]) {
         detector.processDetections(test_detections, i);
         
         // Check for events
-        Event event;
+        Event event("", "", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
         if (detector.getEvent(event, 100)) {
             std::cout << "Event detected: " << event.class_name 
                       << " (confidence: " << event.confidence << ")" << std::endl;
