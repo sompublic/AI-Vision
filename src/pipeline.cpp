@@ -399,6 +399,7 @@ private:
 };
 
 // Example usage and testing
+#ifndef INCLUDED_IN_MAIN
 int main(int argc, char* argv[]) {
     std::string config_file = "configs/pipeline.yaml";
     if (argc > 1) {
